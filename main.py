@@ -4,7 +4,8 @@ import time
 import threading
 from datetime import datetime
 from flask import Flask
-from telegram import Bot, ParseMode
+from telegram import Bot
+from telegram.constants import ParseMode
 
 # --- Config ---
 TOKEN = "INSERISCI_IL_TUO_TOKEN_TELEGRAM"
