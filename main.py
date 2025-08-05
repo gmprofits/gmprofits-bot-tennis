@@ -11,7 +11,6 @@ from telegram.constants import ParseMode
 TOKEN = "INSERISCI_IL_TUO_TOKEN_TELEGRAM"
 CHAT_ID = -1002086576103
 TOPIC_ID = 998
-ODDS_API_KEY = "e1711a40d48ca74b29f1a83350ed846f"
 
 bot = Bot(token=TOKEN)
 app = Flask(__name__)
