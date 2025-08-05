@@ -33,13 +33,13 @@ def start_flask():
 
 def get_live_matches():
     try:
-        url = "https://api.sofascore.com/api/v1/sport/tennis/events/live"
-        res = requests.get(url, headers=headers)
+        res = requests.get("https://b645c9da-fdd1-4ffc-a3db-0ebdcdf6daac-00-2l841urwih42l.kirk.replit.dev:5000/matches")  # <-- usa il tuo URL Replit
         res.raise_for_status()
         return res.json().get("events", [])
     except Exception as e:
-        logging.error(f"Errore richiesta SofaScore: {e}")
+        logging.error(f"Errore richiesta Replit proxy: {e}")
         return []
+
 
 def get_favorite(match):
     home_team = match.get('homeTeam', {})
