@@ -11,15 +11,24 @@ import threading
 TOKEN = os.getenv("BOT_TOKEN")
 ODDS_API_KEY = os.getenv("ODDS_API_KEY")
 CHAT_ID = int(os.getenv("CHAT_ID", "-1002086576103"))  # default supergroup
+TOPIC_ID = os.getenv("TOPIC_ID")  # forum topic ID opzionale
 
+# --- Inizializzazione Bot e Flask ---
 bot = Bot(token=TOKEN)
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 notificati = set()
-
 headers = {"User-Agent": "Mozilla/5.0"}
 
-logging.info(f"🔌 Bot avviato con CHAT_ID={CHAT_ID}")
+# --- Verifica invio test di avvio ---
+try:
+    send_args = {"chat_id": CHAT_ID, "text": "✅ Bot avviato correttamente!", "parse_mode": ParseMode.MARKDOWN}
+    if TOPIC_ID:
+        send_args["message_thread_id"] = int(TOPIC_ID)
+    bot.send_message(**send_args)
+    logging.info(f"Test message inviato a chat_id={CHAT_ID} topic_id={TOPIC_ID}")
+except Exception as e:
+    logging.error(f"❌ Errore invio test message: {e}")
 
 # --- Funzione per determinare il favorito ---
 def get_favorite(match):
@@ -32,9 +41,7 @@ def get_favorite(match):
         for ev in data:
             if home.lower() in ev['home_team'].lower() and away.lower() in ev['away_team'].lower():
                 out = ev['bookmakers'][0]['markets'][0]['outcomes']
-                favorito = out[0]['name'] if out[0]['price'] < out[1]['price'] else out[1]['name']
-                logging.info(f"📈 Favorito quote: {favorito}")
-                return favorito
+                return out[0]['name'] if out[0]['price'] < out[1]['price'] else out[1]['name']
     except Exception as e:
         logging.warning(f"OddsAPI non disponibile: {e}")
     # Fallback ranking
@@ -59,7 +66,6 @@ def check_matches():
     global notificati
     matches = get_live_matches()
     logging.info(f"🔍 Trovati {len(matches)} match in diretta")
-    logging.info("✅ Esecuzione check_matches()")
     for match in matches:
         mid = match.get('id')
         if not mid or mid in notificati:
@@ -76,17 +82,21 @@ def check_matches():
                 continue
             favorito = get_favorite(match)
             logging.info(f"🎾 Match: {home} vs {away} | Set 1: {home_score}-{away_score} | Favorito: {favorito}")
-            sf_condition = (favorito == home and away_score >= 5 and away_score > home_score) or \
-                           (favorito == away and home_score >= 5 and home_score > away_score)
-            if sf_condition:
+            # Condizione alert: favorito sotto di >=5 giochi
+            sf = (favorito == home and away_score >= 5 and away_score > home_score) or \
+                 (favorito == away and home_score >= 5 and home_score > away_score)
+            if sf:
                 logging.info("🚨 CONDIZIONE ALERT RAGGIUNTA 🚨")
                 msg = (
                     f"🚨 {home} vs {away}\n"
                     f"Set 1: {home_score}-{away_score}\n"
                     f"🏅 Il favorito {favorito} sta perdendo! 🚨"
                 )
+                send_args = {"chat_id": CHAT_ID, "text": msg, "parse_mode": ParseMode.MARKDOWN}
+                if TOPIC_ID:
+                    send_args["message_thread_id"] = int(TOPIC_ID)
                 try:
-                    bot.send_message(chat_id=CHAT_ID, text=msg, parse_mode=ParseMode.MARKDOWN)
+                    bot.send_message(**send_args)
                     logging.info("✅ Messaggio inviato con successo")
                 except Exception as e:
                     logging.error(f"❌ Errore invio messaggio: {e}")
@@ -107,6 +117,7 @@ def start_loop():
             logging.info("🔁 Reset notifiche")
         time.sleep(60)
 
+# --- Flask Endpoint ---
 @app.route("/")
 def home():
     return "Tennis Bot attivo su Render!"
