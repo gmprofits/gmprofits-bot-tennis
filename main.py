@@ -11,7 +11,6 @@ import threading
 TOKEN = os.getenv("BOT_TOKEN")
 ODDS_API_KEY = os.getenv("ODDS_API_KEY")
 CHAT_ID = int(os.getenv("CHAT_ID", "-1002086576103"))  # default supergroup
-#TOPIC_ID = os.getenv("TOPIC_ID")  # opzionale, solo se usi forum topics
 
 bot = Bot(token=TOKEN)
 app = Flask(__name__)
@@ -19,6 +18,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 notificati = set()
 
 headers = {"User-Agent": "Mozilla/5.0"}
+
+logging.info(f"🔌 Bot avviato con CHAT_ID={CHAT_ID}")
 
 # --- Funzione per determinare il favorito ---
 def get_favorite(match):
@@ -37,8 +38,8 @@ def get_favorite(match):
     except Exception as e:
         logging.warning(f"OddsAPI non disponibile: {e}")
     # Fallback ranking
-    hr = match['homeTeam'].get('ranking', {}).get('currentRank', 9999)
-    ar = match['awayTeam'].get('ranking', {}).get('currentRank', 9999)
+    hr = match.get('homeTeam', {}).get('ranking', {}).get('currentRank', 9999)
+    ar = match.get('awayTeam', {}).get('ranking', {}).get('currentRank', 9999)
     favorito = home if hr < ar else away
     logging.info(f"🏷️ Favorito ranking: {favorito} | {hr} vs {ar}")
     return favorito
@@ -58,16 +59,14 @@ def check_matches():
     global notificati
     matches = get_live_matches()
     logging.info(f"🔍 Trovati {len(matches)} match in diretta")
-    global notificati
-    logging.info("✅ check_matches eseguito")
-    for match in get_live_matches():
+    logging.info("✅ Esecuzione check_matches()")
+    for match in matches:
         mid = match.get('id')
         if not mid or mid in notificati:
             continue
         try:
-            home = match['homeTeam']['name']
-            away = match['awayTeam']['name']
-            # Estrai punteggio set 1
+            home = match.get('homeTeam', {}).get('name', 'Sconosciuto')
+            away = match.get('awayTeam', {}).get('name', 'Sconosciuto')
             raw_h = match.get('homeScore', 0)
             raw_a = match.get('awayScore', 0)
             home_score = raw_h.get('period1', raw_h) if isinstance(raw_h, dict) else raw_h
@@ -75,11 +74,8 @@ def check_matches():
             status = match.get('status', {}).get('description', '').lower()
             if 'set' not in status:
                 continue
-            # Determina favorito
             favorito = get_favorite(match)
-            # Log per console: giocatori, punteggio, set1 e favorito
             logging.info(f"🎾 Match: {home} vs {away} | Set 1: {home_score}-{away_score} | Favorito: {favorito}")
-            # Controllo condizione: favorito sotto di almeno 5 giochi
             sf_condition = (favorito == home and away_score >= 5 and away_score > home_score) or \
                            (favorito == away and home_score >= 5 and home_score > away_score)
             if sf_condition:
@@ -89,19 +85,23 @@ def check_matches():
                     f"Set 1: {home_score}-{away_score}\n"
                     f"🏅 Il favorito {favorito} sta perdendo! 🚨"
                 )
-                bot.send_message(chat_id=CHAT_ID, text=msg, parse_mode=ParseMode.MARKDOWN)
+                try:
+                    bot.send_message(chat_id=CHAT_ID, text=msg, parse_mode=ParseMode.MARKDOWN)
+                    logging.info("✅ Messaggio inviato con successo")
+                except Exception as e:
+                    logging.error(f"❌ Errore invio messaggio: {e}")
                 notificati.add(mid)
         except Exception as e:
             logging.error(f"Errore match {mid}: {e}")
 
 # --- Loop di polling ---
 def start_loop():
+    logging.info("🏁 Inizio loop di polling")
     while True:
         try:
             check_matches()
         except Exception as e:
             logging.error(f"Errore nel loop di controllo: {e}")
-        # Pulizia notifiche all'inizio di ogni ora
         if datetime.now().minute == 0:
             notificati.clear()
             logging.info("🔁 Reset notifiche")
