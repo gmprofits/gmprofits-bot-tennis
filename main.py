@@ -15,7 +15,7 @@ TOPIC_ID = os.getenv("TOPIC_ID")  # opzionale, solo se usi forum topics
 
 bot = Bot(token=TOKEN)
 app = Flask(__name__)
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 notificati = set()
 
 headers = {"User-Agent": "Mozilla/5.0"}
@@ -72,11 +72,15 @@ def check_matches():
             status = match.get('status', {}).get('description', '').lower()
             if 'set' not in status:
                 continue
+            # Determina favorito
             favorito = get_favorite(match)
+            # Log per console: giocatori, punteggio, set1 e favorito
+            logging.info(f"🎾 Match: {home} vs {away} | Set 1: {home_score}-{away_score} | Favorito: {favorito}")
             # Controllo condizione: favorito sotto di almeno 5 giochi
-            sf = (favorito == home and away_score >= 5 and away_score > home_score) or \
-                 (favorito == away and home_score >= 5 and home_score > away_score)
-            if sf:
+            sf_condition = (favorito == home and away_score >= 5 and away_score > home_score) or \
+                           (favorito == away and home_score >= 5 and home_score > away_score)
+            if sf_condition:
+                logging.info("🚨 CONDIZIONE ALERT RAGGIUNTA 🚨")
                 msg = (
                     f"🚨 {home} vs {away}\n"
                     f"Set 1: {home_score}-{away_score}\n"
