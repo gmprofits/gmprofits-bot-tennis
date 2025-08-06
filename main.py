@@ -13,23 +13,12 @@ ODDS_API_KEY = os.getenv("ODDS_API_KEY")
 CHAT_ID = int(os.getenv("CHAT_ID", "-1002086576103"))
 TOPIC_ID = os.getenv("TOPIC_ID")  # opzionale
 
-# --- Inizializzazione Bot e Flask ---
+# --- Inizializzazione Logging e Bot ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 bot = Bot(token=TOKEN)
 app = Flask(__name__)
 notificati = set()
 headers = {"User-Agent": "Mozilla/5.0"}
-
-# --- Test di avvio immediato ---
-logging.info(f"🔌 Config: CHAT_ID={CHAT_ID}, TOPIC_ID={TOPIC_ID}")
-try:
-    args = {"chat_id": CHAT_ID, "text": "🤖 Bot start!", "parse_mode": ParseMode.MARKDOWN}
-    if TOPIC_ID:
-        args["message_thread_id"] = int(TOPIC_ID)
-    bot.send_message(**args)
-    logging.info("✅ Messaggio di start inviato con successo")
-except Exception as e:
-    logging.error(f"❌ Errore invio messaggio di start: {e}")
 
 # --- Ottieni match live ---
 def get_live_matches():
@@ -101,7 +90,6 @@ def check_matches():
             logging.error(f"Errore match {mid}: {e}")
 
 # --- Loop continuativo ---
-
 def start_loop():
     logging.info("🏁 Loop avviato")
     while True:
@@ -117,5 +105,16 @@ def home():
 
 # --- Avvio applicazione ---
 if __name__ == '__main__':
+    # Verifica iniziale di invio
+    logging.info(f"🔌 Starting bot with CHAT_ID={CHAT_ID}, TOPIC_ID={TOPIC_ID}")
+    try:
+        init_args = {"chat_id": CHAT_ID, "text": "✅ Bot attivo!", "parse_mode": ParseMode.MARKDOWN}
+        if TOPIC_ID:
+            init_args["message_thread_id"] = int(TOPIC_ID)
+        bot.send_message(**init_args)
+        logging.info("✅ Messaggio iniziale inviato")
+    except Exception as e:
+        logging.error(f"❌ Errore invio messaggio iniziale: {e}")
+    # Avvia loop e server
     threading.Thread(target=start_loop, daemon=True).start()
     app.run(host='0.0.0.0', port=8080)
