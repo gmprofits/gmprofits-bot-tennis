@@ -14,23 +14,15 @@ CHAT_ID = int(os.getenv("CHAT_ID", "-1002086576103"))  # default supergroup
 TOPIC_ID = os.getenv("TOPIC_ID")  # forum topic ID opzionale
 
 # --- Inizializzazione Bot e Flask ---
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 bot = Bot(token=TOKEN)
 app = Flask(__name__)
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 notificati = set()
 headers = {"User-Agent": "Mozilla/5.0"}
 
-# --- Verifica invio test di avvio ---
-try:
-    send_args = {"chat_id": CHAT_ID, "text": "✅ Bot avviato correttamente!", "parse_mode": ParseMode.MARKDOWN}
-    if TOPIC_ID:
-        send_args["message_thread_id"] = int(TOPIC_ID)
-    bot.send_message(**send_args)
-    logging.info(f"Test message inviato a chat_id={CHAT_ID} topic_id={TOPIC_ID}")
-except Exception as e:
-    logging.error(f"❌ Errore invio test message: {e}")
-
 # --- Funzione per determinare il favorito ---
+# (spostato test avvio nel blocco main per esecuzione certa)
+def get_favorite(match):
 def get_favorite(match):
     home = match.get('homeTeam', {}).get('name', 'Sconosciuto')
     away = match.get('awayTeam', {}).get('name', 'Sconosciuto')
@@ -41,15 +33,16 @@ def get_favorite(match):
         for ev in data:
             if home.lower() in ev['home_team'].lower() and away.lower() in ev['away_team'].lower():
                 out = ev['bookmakers'][0]['markets'][0]['outcomes']
-                return out[0]['name'] if out[0]['price'] < out[1]['price'] else out[1]['name']
+                favorite = out[0]['name'] if out[0]['price'] < out[1]['price'] else out[1]['name']
+                logging.info(f"📈 Favorito quote: {favorite}")
+                return favorite
     except Exception as e:
         logging.warning(f"OddsAPI non disponibile: {e}")
-    # Fallback ranking
     hr = match.get('homeTeam', {}).get('ranking', {}).get('currentRank', 9999)
     ar = match.get('awayTeam', {}).get('ranking', {}).get('currentRank', 9999)
-    favorito = home if hr < ar else away
-    logging.info(f"🏷️ Favorito ranking: {favorito} | {hr} vs {ar}")
-    return favorito
+    favorite = home if hr < ar else away
+    logging.info(f"🏷️ Favorito ranking: {favorite} | {hr} vs {ar}")
+    return favorite
 
 # --- Recupero match dal proxy ---
 def get_live_matches():
@@ -80,17 +73,16 @@ def check_matches():
             status = match.get('status', {}).get('description', '').lower()
             if 'set' not in status:
                 continue
-            favorito = get_favorite(match)
-            logging.info(f"🎾 Match: {home} vs {away} | Set 1: {home_score}-{away_score} | Favorito: {favorito}")
-            # Condizione alert: favorito sotto di >=5 giochi
-            sf = (favorito == home and away_score >= 5 and away_score > home_score) or \
-                 (favorito == away and home_score >= 5 and home_score > away_score)
+            favorite = get_favorite(match)
+            logging.info(f"🎾 Match: {home} vs {away} | Set 1: {home_score}-{away_score} | Favorito: {favorite}")
+            sf = (favorite == home and away_score >= 5 and away_score > home_score) or \
+                 (favorite == away and home_score >= 5 and home_score > away_score)
             if sf:
                 logging.info("🚨 CONDIZIONE ALERT RAGGIUNTA 🚨")
                 msg = (
                     f"🚨 {home} vs {away}\n"
                     f"Set 1: {home_score}-{away_score}\n"
-                    f"🏅 Il favorito {favorito} sta perdendo! 🚨"
+                    f"🏅 Il favorito {favorite} sta perdendo! 🚨"
                 )
                 send_args = {"chat_id": CHAT_ID, "text": msg, "parse_mode": ParseMode.MARKDOWN}
                 if TOPIC_ID:
