@@ -56,6 +56,9 @@ def get_live_matches():
 # --- Controllo match e notifiche ---
 def check_matches():
     global notificati
+    matches = get_live_matches()
+    logging.info(f"🔍 Trovati {len(matches)} match in diretta")
+    global notificati
     logging.info("✅ check_matches eseguito")
     for match in get_live_matches():
         mid = match.get('id')
