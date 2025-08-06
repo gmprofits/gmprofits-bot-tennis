@@ -11,7 +11,7 @@ import threading
 TOKEN = os.getenv("BOT_TOKEN")
 ODDS_API_KEY = os.getenv("ODDS_API_KEY")
 CHAT_ID = int(os.getenv("CHAT_ID", "-1002086576103"))  # default supergroup
-TOPIC_ID = os.getenv("TOPIC_ID")  # opzionale, solo se usi forum topics
+#TOPIC_ID = os.getenv("TOPIC_ID")  # opzionale, solo se usi forum topics
 
 bot = Bot(token=TOKEN)
 app = Flask(__name__)
@@ -94,7 +94,10 @@ def check_matches():
 # --- Loop di polling ---
 def start_loop():
     while True:
-        check_matches()
+        try:
+            check_matches()
+        except Exception as e:
+            logging.error(f"Errore nel loop di controllo: {e}")
         # Pulizia notifiche all'inizio di ogni ora
         if datetime.now().minute == 0:
             notificati.clear()
